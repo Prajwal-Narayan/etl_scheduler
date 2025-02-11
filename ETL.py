@@ -1,14 +1,14 @@
+import os
 import yfinance as yf
 import pandas as pd
-import psycopg2
 from sqlalchemy import create_engine
 
-# Database connection details
-DB_NAME = "stock_data"
-DB_USER = "postgres"
-DB_PASS = "0009"
-DB_HOST = "localhost"  # Change this if using a remote server
-DB_PORT = "5432"
+# Load database credentials from environment variables (fallback to defaults)
+DB_NAME = os.getenv("DB_NAME", "stock_data")
+DB_USER = os.getenv("DB_USER", "postgres")
+DB_PASS = os.getenv("DB_PASS", "0009")
+DB_HOST = os.getenv("DB_HOST", "localhost")
+DB_PORT = os.getenv("DB_PORT", "5432")
 
 # Define stock tickers
 tickers = ["AAPL", "TSLA"]
@@ -29,14 +29,14 @@ def extract_stock_data(tickers):
             # MultiIndex column case (e.g., ('Open', 'AAPL'))
             new_columns.append(f"{col[1].lower()}_{col[0].lower()}")
         elif isinstance(col, str):  
-            # Explicitly rename '_date' or any variation of Date to 'date'
+            # Rename Date column properly
             new_columns.append("date" if col.strip().lower() in ["date", "_date", "date_"] else col.lower())
         else:
             new_columns.append(col)
 
     data.columns = new_columns  # Assign new column names
 
-    # Forcefully rename '_date' to 'date' if it still exists
+    # Ensure 'date' column is correctly named
     if "_date" in data.columns:
         data.rename(columns={"_date": "date"}, inplace=True)
 
@@ -81,9 +81,14 @@ def transform_stock_data(data):
 def load_to_postgresql(data):
     """Loads stock data into PostgreSQL."""
     try:
-        engine = create_engine(f"postgresql://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}")
+        # PostgreSQL Connection URL
+        DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+        engine = create_engine(DATABASE_URL)
+
+        # Write data to PostgreSQL
         data.to_sql("stock_prices", engine, if_exists="append", index=False)
         print("\n✅ Data successfully loaded into PostgreSQL")
+
     except Exception as e:
         print(f"\n❌ Error loading data into PostgreSQL: {e}")
 
