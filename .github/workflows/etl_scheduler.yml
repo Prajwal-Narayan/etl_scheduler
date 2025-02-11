@@ -1,0 +1,29 @@
+name: "Run ETL Pipeline Every Minute"
+
+on:
+  schedule:
+    - cron: "*/1 * * * *"  # Runs every 1 minute
+  workflow_dispatch:  # Allows manual triggering
+
+jobs:
+  run_etl:
+    runs-on: ubuntu-latest  # Use a Linux runner
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3  # Clones your repo
+
+      - name: Set up Python
+        uses: actions/setup-python@v3
+        with:
+          python-version: '3.8'  # Change this if needed
+
+      - name: Install Dependencies
+        run: |
+          pip install -r requirements.txt  # Install required packages
+          
+      - name: Run ETL Script
+        run: python etl_pipeline.py
+
+      - name: Notify on Failure
+        if: failure()
+        run: echo "ETL Pipeline failed! Check logs."
