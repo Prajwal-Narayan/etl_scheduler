@@ -1,13 +1,28 @@
-name: "Run ETL Pipeline Every Minute"
+name: "Run ETL Pipeline Every 5 Minutes"
 
 on:
   schedule:
-    - cron: "*/5 * * * *"  # Runs every 1 minute
+    - cron: "*/5 * * * *"  # Runs every 5 minutes
   workflow_dispatch:  # Allows manual triggering
 
 jobs:
   run_etl:
     runs-on: ubuntu-latest  # Use a Linux runner
+    services:
+      postgres:
+        image: postgres:17  # Use PostgreSQL 17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: 0009
+          POSTGRES_DB: stock_data
+        ports:
+          - 5432:5432  # Map PostgreSQL to port 5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3  # Clones your repo
@@ -15,15 +30,28 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v3
         with:
-          python-version: '3.10'  # Change this if needed
+          python-version: '3.8'  # Ensure correct Python version
 
       - name: Install Dependencies
         run: |
-          pip install -r requirements.txt  # Install required packages
+          pip install -r requirements.txt
           
+      - name: Wait for PostgreSQL to Start
+        run: sleep 10  # Ensure the database has time to start
+
+      - name: Verify PostgreSQL Connection
+        run: |
+          pg_isready -h localhost -p 5432 -U postgres
+
       - name: Run ETL Script
+        env:
+          DB_NAME: stock_data
+          DB_USER: postgres
+          DB_PASS: 0009
+          DB_HOST: localhost
+          DB_PORT: 5432
         run: python ETL.py
 
       - name: Notify on Failure
         if: failure()
-        run: echo "ETL Pipeline failed! Check logs."
+        run: echo "❌ ETL Pipeline failed! Check logs."
